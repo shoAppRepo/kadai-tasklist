@@ -15,13 +15,20 @@ class TasksController extends Controller
      */
     public function index()
     {
-        $tasklists = Task::all();
-
-        return view('tasks.index', [
-            'tasks' => $tasklists,
-            //$tasklistsをviewではtasksという名前で使う
-        ]);
+        $data = [];
+        if (\Auth::check()) {
+            $user = \Auth::user();
+            $tasks = $user->tasks()->orderBy('created_at', 'desc')->paginate(10);
+            
+            $data = [
+                'user' => $user,
+                'tasks' => $tasks,
+            ];
+        }
+        
+        return view('welcome', $data);
     }
+
     /**
      * Show the form for creating a new resource.
      *
@@ -46,12 +53,15 @@ class TasksController extends Controller
     {
         $this->validate($request, [
             'status' => 'required|max:10',
-        ]);        
+            'content'=>'required|max:191',
+        ]);       
+
+        $request->user()->tasks()->create([
+            'content'=>$request->content,
+            'status'=>$request->status,
+        ]);
         
-        $task = new Task;
-        $task->content=$request->content;
-        $task->status=$request->status;
-        $task->save();
+
         
         return redirect('/');
     }
@@ -64,10 +74,10 @@ class TasksController extends Controller
      */
     public function show($id)
     {
-        $task =Task::find($id);
-        
-        return view('tasks.show',[
-           'task' => $task, 
+        $task = Task::find($id);
+
+        return view('tasks.show', [
+            'task' => $task,
         ]);
     }
 
@@ -116,8 +126,10 @@ class TasksController extends Controller
     public function destroy($id)
     {
         $task=Task::find($id);
-        $task->delete();
-        
+        if (\Auth::id() === $task->user_id) {
+            $task->delete();
+        }
+
         return redirect('/');
     }
 }
